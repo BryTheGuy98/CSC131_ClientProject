@@ -132,6 +132,3 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     runPDF: false,
   } );
 } );
-
-
-// "tectonic-js": "file:tectonic-js-1.0.0.tgz",
