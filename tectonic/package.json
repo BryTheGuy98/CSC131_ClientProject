@@ -1,0 +1,11 @@
+{
+  "name": "tectonic-js",
+  "version": "1.0.0",
+  "description": "A simple wrapper for the tectonic-typesetting linux (Ubuntu) and MacOS Builds",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run index.js"
+  },
+  "author": "Akal-Ustat Singh",
+  "license": "ISC"
+}
