@@ -98,28 +98,38 @@ async function createLatex( data, buffr ) {
 }
 
 exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
-  const prevData = event.data.before.data();
-  const newData = event.data.after.data();
+  const previousDocument = event.data.before;
+  const currentDocument = event.data.after;
 
-  console.log( event.data.before.exists );
-  if ( !event.data.after.exists ||
-    ( event.data.before.exists && prevData.runPDF === newData.runPDF ) ||
-    ( !event.data.before.exists && !prevData.runPDF ) ) return null;
+  const previousData = previousDocument.data();
+  const currentData = currentDocument.data();
 
+  // const datas = [
+  //   { description: "previous data", value: JSON.stringify( previousDocument.data() ) },
+  //   { description: "current data", value: JSON.stringify( currentDocument.data() ) },
+  //   { description: "do prev and curr match", value: previousDocument.exists && previousDocument.data().runPDF === currentDocument.data().runPDF },
+  //   { description: "if deleted", value: !currentDocument.exists },
+  //   { description: "current data is false", value: !currentDocument.data().runPDF },
+  // ];
+
+  // console.table( datas );
+
+  if ( !currentDocument.data().runPDF ||
+      !currentDocument.exists ||
+  ( previousDocument.exists && previousData.runPDF === currentData.runPDF ) ) {
+    return null;
+  }
   const storage = getStorage();
   const bucket = storage.bucket( "gs://csc131-project-5b513.appspot.com/" );
 
-  // await bucket
-  //     .file( "ansync_logo.jpg" )
-  //     .download( { destination: os.tmpdir + "/ansync_logo.jpg" } );
-  // const texBuffer = await bucket
-  //     .file( "combined_invoice_template.tex" )
-  //     .download();
-  const imageBuffer = await readFile( "./ansync_logo.jpg" );
-  await writeFile( os.tmpdir + "/ansync_logo.jpg", imageBuffer );
-  const texBuffer = await readFile( "./combined_invoice_template.tex" );
+  await bucket
+      .file( "ansync_logo.jpg" )
+      .download( { destination: os.tmpdir + "/ansync_logo.jpg" } );
+  const texBuffer = await bucket
+      .file( "combined_invoice_template.tex" )
+      .download();
 
-  const invoiceNumber = await createLatex( prevData, texBuffer );
+  const invoiceNumber = await createLatex( currentData, texBuffer );
   try {
     await tectonic( os.tmpdir + `/invoice_${invoiceNumber}.tex -o ` + os.tmpdir );
   } catch ( e ) {
@@ -128,7 +138,9 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   await bucket.upload( os.tmpdir + `/invoice_${invoiceNumber}.pdf` );
 
 
-  return event.data.after.ref.update( {
-    runPDF: false,
-  } );
+  {
+    return event.data.after.ref.update( {
+      runPDF: false,
+    } );
+  }
 } );
