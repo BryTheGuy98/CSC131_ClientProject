@@ -1,8 +1,8 @@
 {
   "scripts": {
-    "build:tectonic": "cd tectonic && npm pack && mv tectonic-js-1.0.0.tgz ../functions/tectonic-js-1.0.0.tgz",
-    "install:tectonic": "cd functions && npm i ./tectonic-js-1.0.0.tgz",
-    "rebuild-tectonic": "npm run build:tectonic && install:tectonic",
+    "build:tectonic": "cd tectonic && npm pack && mv tectonic-js-1.0.0.tgz ../functions/tectonic-js-1.0.0.tgz && cd ..",
+    "install:tectonic": "cd functions && npm i ./tectonic-js-1.0.0.tgz --no-save",
+    "rebuild:tectonic": "npm run build:tectonic && install:tectonic",
     "local": "firebase emulators:start --import=./dir",
     "cloud": "firebase deploy --only functions",
     "local-with-build": "npm run rebuild-tectonic && npm run:local",
