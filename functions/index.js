@@ -37,6 +37,7 @@ const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
 const nodemailer = require( "nodemailer" );
+require( "dotenv" ).config();
 
 
 setGlobalOptions(
@@ -150,8 +151,8 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
 const mailTransport = nodemailer.createTransport( {
   service: "gmail",
   auth: {
-    user: "bikramksaini@gmail.com",
-    pass: "yjgk evve udla mkyq",
+    user: process.env.USER_EMAIL,
+    pass: process.env.USER_PASS,
   },
 } );
 
@@ -178,7 +179,7 @@ exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => 
   await bucket.file( `invoices/${fileName}` ).download( { destination: downloadPath } );
 
   const mailOpts = {
-    from: "DevWave <bikramksaini@gmail.com>",
+    from: `DevWave ${process.env.USER_EMAIL}`,
     to: currentData.clientEmail,
     subject: `Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
     attachments: [

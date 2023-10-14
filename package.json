@@ -9,6 +9,7 @@
     "cloud-with-build": "npm run rebuild-tectonic && npm run:cloud"
   },
   "dependencies": {
+    "dotenv": "^16.3.1",
     "nodemailer": "^6.9.6"
   }
 }
