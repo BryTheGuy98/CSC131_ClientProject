@@ -32,7 +32,7 @@ const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
 const { getStorage } = require( "firebase-admin/storage" );
 const { setGlobalOptions } = require( "firebase-functions/v2" );
 
-const { writeFile, readFile } = require( "fs/promises" );
+const { writeFile } = require( "fs/promises" );
 const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
@@ -87,7 +87,7 @@ async function createLatex( data, buffr ) {
     [ clientPO, /{{clientPO}}/ ],
     [ clientID, /{{clientID}}/ ],
     [ dueDate, /{{dueDate}}/ ],
-    [ invoiceDate.toDate(), /{{invoiceDate}}/ ],
+    [ invoiceDate.toDate().toDateString(), /{{invoiceDate}}/ ],
     [ invoiceNumber, /{{invoiceNumber}}/ ],
     [ description, /{{description}}/ ],
     [ dataTable, /{{invoiceTable}}/ ],
@@ -116,22 +116,24 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     return null;
   }
   const storage = getStorage();
-  const bucket = storage.bucket( "gs://csc131-project-5b513.appspot.com/" );
+  const bucket = storage.bucket();
 
-  await bucket
-      .file( "ansync_logo.jpg" )
-      .download( { destination: os.tmpdir + "/ansync_logo.jpg" } );
-  const texBuffer = await bucket
-      .file( "combined_invoice_template.tex" )
-      .download();
-
-  const invoiceNumber = await createLatex( currentData, texBuffer );
   try {
-    await tectonic( os.tmpdir + `/invoice_${invoiceNumber}.tex -o ` + os.tmpdir );
+    const { folder, assets, main } = currentData.template;
+
+    const texBuffer = await bucket
+        .file( `templates/${folder}/${main}` )
+        .download();
+
+    await Promise.all( assets.map( ( asset ) => async () => bucket.file( `templates/${folder}/${asset}` ).download() ) );
+
+    const invoiceNumber = await createLatex( currentData, texBuffer );
+    const fileName = `invoice_${invoiceNumber}`;
+    await tectonic( os.tmpdir + `/${fileName}.tex -o ` + os.tmpdir );
+    await bucket.upload( os.tmpdir + `/${fileName}.pdf`, { destination: `invoices/${fileName}.pdf` } );
   } catch ( e ) {
     error( e );
   }
-  await bucket.upload( os.tmpdir + `/invoice_${invoiceNumber}.pdf` );
 
 
   return event.data.after.ref.update( {
