@@ -37,9 +37,14 @@ const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
 
-initializeApp();
 
-setGlobalOptions( { timeoutSeconds: 350 } );
+setGlobalOptions(
+    {
+      memory: "1GB",
+      timeoutSeconds: 300,
+    } );
+
+initializeApp();
 
 /**
  * Iterate over the items property in a document to generate a latex table
@@ -104,15 +109,6 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   const previousData = previousDocument.data();
   const currentData = currentDocument.data();
 
-  // const datas = [
-  //   { description: "previous data", value: JSON.stringify( previousDocument.data() ) },
-  //   { description: "current data", value: JSON.stringify( currentDocument.data() ) },
-  //   { description: "do prev and curr match", value: previousDocument.exists && previousDocument.data().runPDF === currentDocument.data().runPDF },
-  //   { description: "if deleted", value: !currentDocument.exists },
-  //   { description: "current data is false", value: !currentDocument.data().runPDF },
-  // ];
-
-  // console.table( datas );
 
   if ( !currentDocument.data().runPDF ||
       !currentDocument.exists ||
@@ -138,9 +134,7 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   await bucket.upload( os.tmpdir + `/invoice_${invoiceNumber}.pdf` );
 
 
-  {
-    return event.data.after.ref.update( {
-      runPDF: false,
-    } );
-  }
+  return event.data.after.ref.update( {
+    runPDF: false,
+  } );
 } );
