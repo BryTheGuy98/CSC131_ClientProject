@@ -7,5 +7,8 @@
     "cloud": "firebase deploy --only functions",
     "local-with-build": "npm run rebuild-tectonic && npm run:local",
     "cloud-with-build": "npm run rebuild-tectonic && npm run:cloud"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.6"
   }
 }
