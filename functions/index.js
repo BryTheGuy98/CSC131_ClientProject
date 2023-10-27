@@ -37,8 +37,6 @@ const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
 const nodemailer = require( "nodemailer" );
-require( "dotenv" ).config();
-
 
 setGlobalOptions(
     {
@@ -111,7 +109,6 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   const previousData = previousDocument.data();
   const currentData = currentDocument.data();
 
-
   if ( !currentDocument.data().runPDF ||
       !currentDocument.exists ||
   ( previousDocument.exists && previousData.runPDF === currentData.runPDF ) ) {
@@ -148,14 +145,14 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   } );
 } );
 
+
 const mailTransport = nodemailer.createTransport( {
   service: "gmail",
   auth: {
-    user: process.env.USER_EMAIL,
-    pass: process.env.USER_PASS,
+    user: `${process.env.USER_EMAIL}`,
+    pass: `${process.env.USER_PASS}`,
   },
 } );
-
 exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   const previousDocument = event.data.before;
   const currentDocument = event.data.after;
@@ -181,7 +178,7 @@ exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => 
   const mailOpts = {
     from: `DevWave ${process.env.USER_EMAIL}`,
     to: currentData.clientEmail,
-    subject: `Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
+    subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
     attachments: [
       {
         filename: fileName,
