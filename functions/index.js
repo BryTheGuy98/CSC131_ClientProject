@@ -32,14 +32,19 @@ const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
 const { getStorage } = require( "firebase-admin/storage" );
 const { setGlobalOptions } = require( "firebase-functions/v2" );
 
-const { writeFile, readFile } = require( "fs/promises" );
+const { writeFile } = require( "fs/promises" );
 const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
+const nodemailer = require( "nodemailer" );
+
+setGlobalOptions(
+    {
+      memory: "1GB",
+      timeoutSeconds: 300,
+    } );
 
 initializeApp();
-
-setGlobalOptions( { timeoutSeconds: 350 } );
 
 /**
  * Iterate over the items property in a document to generate a latex table
@@ -82,7 +87,7 @@ async function createLatex( data, buffr ) {
     [ clientPO, /{{clientPO}}/ ],
     [ clientID, /{{clientID}}/ ],
     [ dueDate, /{{dueDate}}/ ],
-    [ invoiceDate.toDate(), /{{invoiceDate}}/ ],
+    [ invoiceDate.toDate().toDateString(), /{{invoiceDate}}/ ],
     [ invoiceNumber, /{{invoiceNumber}}/ ],
     [ description, /{{description}}/ ],
     [ dataTable, /{{invoiceTable}}/ ],
@@ -98,40 +103,97 @@ async function createLatex( data, buffr ) {
 }
 
 exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
-  const prevData = event.data.before.data();
-  const newData = event.data.after.data();
+  const previousDocument = event.data.before;
+  const currentDocument = event.data.after;
 
-  console.log( event.data.before.exists );
-  if ( !event.data.after.exists ||
-    ( event.data.before.exists && prevData.runPDF === newData.runPDF ) ||
-    ( !event.data.before.exists && !prevData.runPDF ) ) return null;
+  const previousData = previousDocument.data();
+  const currentData = currentDocument.data();
 
+  if ( !currentDocument.data().runPDF ||
+      !currentDocument.exists ||
+  ( previousDocument.exists && previousData.runPDF === currentData.runPDF ) ) {
+    return null;
+  }
   const storage = getStorage();
-  const bucket = storage.bucket( "gs://csc131-project-5b513.appspot.com/" );
+  const bucket = storage.bucket();
 
-  // await bucket
-  //     .file( "ansync_logo.jpg" )
-  //     .download( { destination: os.tmpdir + "/ansync_logo.jpg" } );
-  // const texBuffer = await bucket
-  //     .file( "combined_invoice_template.tex" )
-  //     .download();
-  const imageBuffer = await readFile( "./ansync_logo.jpg" );
-  await writeFile( os.tmpdir + "/ansync_logo.jpg", imageBuffer );
-  const texBuffer = await readFile( "./combined_invoice_template.tex" );
-
-  const invoiceNumber = await createLatex( prevData, texBuffer );
   try {
-    await tectonic( os.tmpdir + `/invoice_${invoiceNumber}.tex -o ` + os.tmpdir );
+    const { folder, assets, main } = currentData.template;
+
+    const texBuffer = await bucket
+        .file( `templates/${folder}/${main}` )
+        .download();
+
+    await Promise.all(
+        assets.map(
+            ( asset ) => async () => bucket.file( `templates/${folder}/${asset}` ).download(),
+        ),
+    );
+
+    const invoiceNumber = await createLatex( currentData, texBuffer );
+    const fileName = `invoice_${invoiceNumber}`;
+    await tectonic( os.tmpdir + `/${fileName}.tex -o ` + os.tmpdir );
+    await bucket.upload( os.tmpdir + `/${fileName}.pdf`, { destination: `invoices/${fileName}.pdf` } );
   } catch ( e ) {
     error( e );
   }
-  await bucket.upload( os.tmpdir + `/invoice_${invoiceNumber}.pdf` );
 
 
   return event.data.after.ref.update( {
     runPDF: false,
+    sendEmail: true,
   } );
 } );
 
 
-// "tectonic-js": "file:tectonic-js-1.0.0.tgz",
+const mailTransport = nodemailer.createTransport( {
+  service: "gmail",
+  auth: {
+    user: `${process.env.USER_EMAIL}`,
+    pass: `${process.env.USER_PASS}`,
+  },
+} );
+exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
+  const previousDocument = event.data.before;
+  const currentDocument = event.data.after;
+
+  const previousData = previousDocument.data();
+  const currentData = currentDocument.data();
+
+
+  if ( !currentDocument.data().sendEmail ||
+      !currentDocument.exists ||
+  ( previousDocument.exists && previousData.sendEmail === currentData.sendEmail ) ) {
+    return null;
+  }
+
+  const fileName = `invoice_${currentData.invoiceNumber}.pdf`;
+  const downloadPath = `${os.tmpdir}/${fileName}`;
+
+  const storage = getStorage();
+  const bucket = storage.bucket();
+
+  await bucket.file( `invoices/${fileName}` ).download( { destination: downloadPath } );
+
+  const mailOpts = {
+    from: `DevWave ${process.env.USER_EMAIL}`,
+    to: currentData.clientEmail,
+    subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
+    attachments: [
+      {
+        filename: fileName,
+        path: downloadPath,
+      },
+    ],
+  };
+
+  try {
+    await mailTransport.sendMail( mailOpts );
+  } catch ( e ) {
+    error( e );
+  }
+  return event.data.after.ref.update( {
+    sendEmail: false,
+  } );
+} );
+

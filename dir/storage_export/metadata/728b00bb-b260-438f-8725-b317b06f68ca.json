@@ -1,0 +1,19 @@
+{
+  "name": "templates/default/combined_invoice_template.tex",
+  "bucket": "csc131-project-5b513.appspot.com",
+  "metageneration": 1,
+  "generation": 1697307629556,
+  "contentType": "application/x-tex",
+  "storageClass": "STANDARD",
+  "contentDisposition": "inline",
+  "downloadTokens": [
+    "5275a48b-6ffd-48fa-b8fb-8ad9b68650f5"
+  ],
+  "etag": "ny8mqz0rQundzsWsjJGc7Yt9kGo",
+  "customMetadata": {},
+  "timeCreated": "2023-10-14T18:20:29.556Z",
+  "updated": "2023-10-14T18:20:29.556Z",
+  "size": 21817,
+  "md5Hash": "nR6yEgraD4bgHn1SxSu/dg==",
+  "crc32c": "2621932022"
+}
