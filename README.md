@@ -5,9 +5,7 @@
 **Group:** Bryan Robare, Huy Dao, Hadia Amiri, Keerat Khandpur, Jacob Rutter, Akal-Ustat Singh.
 
 
-# Table of Contents
-- [PDF Invoice Generator](#pdf-invoice-generator)
-- [Table of Contents](#table-of-contents)
+ Table of Contents
   - [I. Overview and Technologies](#i-overview-and-technologies)
     - [A. Google Cloud](#a-google-cloud)
       - [i. Firestore](#i-firestore)
@@ -38,7 +36,7 @@ This client project is implemented using the Google Cloud Platform (Firebase), N
 
 #### i. Firestore
 This generator uses the Firebase Firestore as its datastore. This means that for invoices that need to be generated, data must first be inserted into a new Firestore document. The data follows the structure below:
-```json
+```
 {
   clientID: string,
   clientName: string,
@@ -199,7 +197,7 @@ To install this local module, run `npm run rebuild:tectonic`(a helper npm comman
 
 ### B. functions
 
-The functions folder conains the code of the function in [index.js](functions/index.js). Helper methods are included under the [lib folder](functions/lib/): 
+The functions folder conains the code of the function in [`index.js`](functions/index.js). Helper methods are included under the [lib folder](functions/lib/): 
 
         lib
         ├── templating.js
