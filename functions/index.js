@@ -5,13 +5,11 @@ const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
 const { getStorage } = require( "firebase-admin/storage" );
 const { setGlobalOptions } = require( "firebase-functions/v2" );
 
-const { writeFile } = require( "fs/promises" );
 const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
 const { Template } = require( "./lib/templating" );
-const { log } = require( "console" );
-// const nodemailer = require( "nodemailer" );
+const nodemailer = require( "nodemailer" );
 
 setGlobalOptions(
     {
@@ -98,54 +96,54 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
 } );
 
 
-// const mailTransport = nodemailer.createTransport( {
-//   service: "gmail",
-//   auth: {
-//     user: `${process.env.USER_EMAIL}`,
-//     pass: `${process.env.USER_PASS}`,
-//   },
-// } );
-// exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
-//   const previousDocument = event.data.before;
-//   const currentDocument = event.data.after;
+const mailTransport = nodemailer.createTransport( {
+  service: "gmail",
+  auth: {
+    user: `${process.env.USER_EMAIL}`,
+    pass: `${process.env.USER_PASS}`,
+  },
+} );
+exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
+  const previousDocument = event.data.before;
+  const currentDocument = event.data.after;
 
-//   const previousData = previousDocument.data();
-//   const currentData = currentDocument.data();
+  const previousData = previousDocument.data();
+  const currentData = currentDocument.data();
 
 
-//   if ( !currentDocument.data().sendEmail ||
-//       !currentDocument.exists ||
-//   ( previousDocument.exists && previousData.sendEmail === currentData.sendEmail ) ) {
-//     return null;
-//   }
+  if ( !currentDocument.data().sendEmail ||
+      !currentDocument.exists ||
+  ( previousDocument.exists && previousData.sendEmail === currentData.sendEmail ) ) {
+    return null;
+  }
 
-//   const fileName = `invoice_${currentData.invoiceNumber}.pdf`;
-//   const downloadPath = `${os.tmpdir}/${fileName}`;
+  const fileName = `invoice_${currentData.invoiceNumber}.pdf`;
+  const downloadPath = `${os.tmpdir}/${fileName}`;
 
-//   const storage = getStorage();
-//   const bucket = storage.bucket();
+  const storage = getStorage();
+  const bucket = storage.bucket();
 
-//   await bucket.file( `invoices/${fileName}` ).download( { destination: downloadPath } );
+  await bucket.file( `invoices/${fileName}` ).download( { destination: downloadPath } );
 
-//   const mailOpts = {
-//     from: `DevWave ${process.env.USER_EMAIL}`,
-//     to: currentData.clientEmail,
-//     subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
-//     attachments: [
-//       {
-//         filename: fileName,
-//         path: downloadPath,
-//       },
-//     ],
-//   };
+  const mailOpts = {
+    from: `DevWave ${process.env.USER_EMAIL}`,
+    to: currentData.clientEmail,
+    subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
+    attachments: [
+      {
+        filename: fileName,
+        path: downloadPath,
+      },
+    ],
+  };
 
-//   try {
-//     await mailTransport.sendMail( mailOpts );
-//   } catch ( e ) {
-//     error( e );
-//   }
-//   return event.data.after.ref.update( {
-//     sendEmail: false,
-//   } );
-// } );
+  try {
+    await mailTransport.sendMail( mailOpts );
+  } catch ( e ) {
+    error( e );
+  }
+  return event.data.after.ref.update( {
+    sendEmail: false,
+  } );
+} );
 
