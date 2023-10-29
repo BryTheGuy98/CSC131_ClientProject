@@ -1,4 +1,3 @@
-// eslint-disable-next-line no-unused-vars
 const { initializeApp } = require( "firebase-admin/app" );
 const { error } = require( "firebase-functions/logger" );
 const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
