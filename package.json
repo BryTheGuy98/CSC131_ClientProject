@@ -5,11 +5,8 @@
     "rebuild:tectonic": "npm run build:tectonic && install:tectonic",
     "local": "firebase emulators:start --import=./dir",
     "cloud": "firebase deploy --only functions",
+    "local:mac:free-port": "lsof -t -i tcp:8080 | xargs kill",
     "local-with-build": "npm run rebuild-tectonic && npm run:local",
     "cloud-with-build": "npm run rebuild-tectonic && npm run:cloud"
-  },
-  "dependencies": {
-    "dotenv": "^16.3.1",
-    "nodemailer": "^6.9.6"
   }
 }
