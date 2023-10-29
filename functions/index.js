@@ -341,7 +341,7 @@ exports.onToEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => 
     return event.data.after.ref.update( {
       state: {
         hadError: true,
-        hadErrorMessage: "Could not send the email. Please read logs",
+        hadErrorMessage: "Could not send the emailt. Please read logs",
         toEmail: false,
         toPDF: false,
       },
