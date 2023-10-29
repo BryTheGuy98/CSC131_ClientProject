@@ -1,18 +1,18 @@
 {
-  "name": "templates/default/ansync_logo.jpg",
+  "name": "templates/default/assets/ansync_logo.jpg",
   "bucket": "csc131-project-5b513.appspot.com",
   "metageneration": 1,
-  "generation": 1697307629552,
+  "generation": 1698442536251,
   "contentType": "image/jpeg",
   "storageClass": "STANDARD",
   "contentDisposition": "inline",
   "downloadTokens": [
-    "4fdd4ef4-c482-4102-aea9-76e2c624ada3"
+    "e4a92066-73dc-4467-9fd7-7a3ef7e81a1d"
   ],
-  "etag": "wO2zoa0dOx+lKB5J8hbVh00swAM",
+  "etag": "TADnmqWgumtjiEpW5FvisV7y/oA",
   "customMetadata": {},
-  "timeCreated": "2023-10-14T18:20:29.552Z",
-  "updated": "2023-10-14T18:20:29.552Z",
+  "timeCreated": "2023-10-27T21:35:36.251Z",
+  "updated": "2023-10-27T21:35:36.251Z",
   "size": 3326,
   "md5Hash": "e0pEJYaNzIoc3e47upPP2g==",
   "crc32c": "1486916456"
