@@ -1,43 +1,126 @@
-// eslint-disable-next-line no-unused-vars
 const { initializeApp } = require( "firebase-admin/app" );
 const { error } = require( "firebase-functions/logger" );
 const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
 const { getStorage } = require( "firebase-admin/storage" );
 const { setGlobalOptions } = require( "firebase-functions/v2" );
 
-const os = require( "os" );
-
 const tectonic = require( "tectonic-js" );
 const { Template } = require( "./lib/templating" );
 const nodemailer = require( "nodemailer" );
+const { cleanTmpDir, createFilesDir, getFilesDir, filePathOfNewFile } = require( "./lib/utils" );
 
+// latex compiler needs a bit of memory
 setGlobalOptions(
     {
       memory: "1GB",
-      timeoutSeconds: 300,
+      timeoutSeconds: 500,
     } );
 
 initializeApp();
 
-exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
+/**
+ * The function to generate PDFs from a LaTeX Template
+ *
+ * onDocumentWritten runs everytime the document is changed, so it will run again
+ * if the toPDF flag under the state object is set to true
+ */
+exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
+  // get document state from before change and after change
   const previousDocument = event.data.before;
   const currentDocument = event.data.after;
 
+  // get data from before change and after change
   const previousData = previousDocument.data();
   const currentData = currentDocument.data();
 
-  if ( !currentDocument.data().runPDF ||
+  // document state flags
+  const previousState = previousData.state;
+  const currentState = currentData.state;
+
+  /*
+    Because onDocumentWritten runs everytime a change is made, we need to handle some situations that will result in
+    infinite loops or needless creation of instances
+
+    1. If the toPDF flag is false, immediately exit.
+    2. If the document has been deleted, immediately exit.
+    3. If the toPDF flag has not changed, immediately exit.
+  */
+  if ( !currentState.toPDF ||
       !currentDocument.exists ||
-  ( previousDocument.exists && previousData.runPDF === currentData.runPDF ) ) {
+  ( previousDocument.exists && previousState.toPDF === currentState.toPDF ) ) {
     return null;
   }
+  /* our templates and assets are stored in cloud storage buckets.  */
   const storage = getStorage();
   const bucket = storage.bucket();
 
-  const { folder, main } = currentData.template;
+  // intermediary work. These variables store names of files
+  const invoiceNumber = currentData.invoiceNumber;
+  // both the PDF and .tex file will have this name
+  const fileName = `invoice_${invoiceNumber}`;
+  // file name with extension
+  const latexFileNameWithExt = fileName + ".tex";
+  const pdfFileNameWithExt = fileName + ".pdf";
 
+  // paths where both the latex file and pdf file will be written
+  const latexFilePath = filePathOfNewFile( latexFileNameWithExt );
+  const pdfFilePath = filePathOfNewFile( pdfFileNameWithExt );
+
+  /* When email sending fails, it sets the "toEmail" flag to true.
+    If it is true, and the pdf file is already generated, then skip all the other work
+    and try to send the email again.
+  */
+  if ( currentState.toEmail && await bucket.file( `invoices/${pdfFileNameWithExt}` ).exists() ) {
+    await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
+    return event.data.after.ref.update( {
+      state: {
+        hadError: false,
+        hadErrorMessage: "",
+        toEmail: false,
+        toPDF: false,
+      } } );
+  }
+  const folder = currentData.template;
+
+  let filesDir;
+  /* Step 1
+    We need to be able to clean up our temporary files that we download/create to
+    minimize memory use, so we create a folder in os.tmpdir that can be deleted wholesale later.
+  */
   try {
-    const texBuffer = await bucket
+    await createFilesDir();
+    filesDir = getFilesDir();
+  } catch ( e ) {
+    error( `
+      Something went wrong with creating the files directory in os.tmpdir.\n
+      Please read the following error message.\n
+      ${e}
+    ` );
+
+    // if we could not create that folder, exit early
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not create temp folder. Please read logs",
+        toEmail: false,
+        toPDF: false,
+      },
+    } );
+  }
+
+  let texBuffer;
+  /* Step 2
+    Download the LaTeX template as a buffer and its related assets to the
+    previously created folder in os.tmpdir.
+
+    Templates are stored with the following schema:
+      In our cloud bucket, under the parent folder "templates," the template name will be the "folder",
+      where in it:
+        - template.tex is the main folder
+        - the subfolder assets will contain all related assets (imgs, etc)
+  */
+  try {
+    texBuffer = await bucket
         .file( `templates/${folder}/template.tex` )
         .download();
 
@@ -50,100 +133,187 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
           files
               .filter(
                   ( file ) =>
-                  // this function also lists folders, so filter them out
+                    // this function also lists folders, so filter them out
                     file.name.includes( "." ) )
               .forEach( ( file ) => {
-              // then download the files
+                // then download the files
 
                 // cloud storage name contains the path, so strip it out
                 const name = file.name.substring(
                     file.name.lastIndexOf( "/" ) );
-                file.download( { destination: os.tmpdir + name } );
+                file.download( { destination: filesDir + name } );
               } );
         } );
-
-
-    const invoiceNumber = currentData.invoiceNumber;
-    const fileName = `invoice_${invoiceNumber}`;
-
-    // create our final latex file
-    const templater = new Template( texBuffer );
-    try {
-      await templater
-          .substitute( currentData )
-          .writeToFile( os.tmpdir + "/" + fileName + ".tex", { encoding: "utf-8", flag: "w" } );
-    } catch ( e ) {
-      error( `
-        Something went wrong with templating. Please read the error.
-        ${e}
-      ` );
-    }
-
-    // process and compile it
-    await tectonic( os.tmpdir + `/${fileName}.tex -o ` + os.tmpdir );
-
-    // and then save it to the invoices folder
-    await bucket.upload( os.tmpdir + `/${fileName}.pdf`, { destination: `invoices/${fileName}.pdf` } );
   } catch ( e ) {
-    error( e );
+    error( `
+      Something went wrong with downloading the template and related assets.\n
+      Please read the error below.\n
+      ${e}
+    ` );
+
+    // if we cannot get these files, exit early
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not create get bucket files. Please read logs",
+        toEmail: false,
+        toPDF: false,
+      },
+    } );
   }
 
 
+  /* Step 3
+    Create the LaTeX file by substituting the templating language for actual
+    FireStore data.
+  */
+  const templater = new Template( texBuffer );
+  try {
+    await templater
+        .substitute( currentData )
+        .writeToFile( latexFilePath, { encoding: "utf-8", flag: "w" } );
+  } catch ( e ) {
+    error( `
+        Something went wrong with templating.\n
+        Please read the error below.\n
+        ${e}
+      ` );
+    // if we cannot create the .tex file, exit early.
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not create tex file from template. Please read logs",
+        toEmail: false,
+        toPDF: false,
+      },
+    } );
+  }
+
+  /* Step 4
+    Compile the final LaTeX file with the tectonic utility.
+  */
+  try {
+    await tectonic( latexFilePath + " -o " + filesDir );
+  } catch ( e ) {
+    error( `
+    Something went wrong with compiling the LaTeX.\n
+    Please read the error below.\n
+    ${e}
+    ` );
+    // if we cannot compile the LaTeX, exit early
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not compile the tex file. Please read logs",
+        toEmail: false,
+        toPDF: false,
+      },
+    } );
+  }
+
+  /* Step 5
+    Upload the final PDF to our cloud bucket, under the "invoices" folder
+  */
+  try {
+    await bucket.upload( pdfFilePath, { destination: `invoices/${pdfFileNameWithExt}` } );
+  } catch ( e ) {
+    error( `
+    Something went wrong with uploading the PDF.\n
+    Please read the error below.\n
+    ${e}
+    ` );
+    // if we cannot upload the PDF, exit early
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not upload the PDF file to a bucket. Please read logs",
+        toEmail: false,
+        toPDF: false,
+      },
+    } );
+  }
+
+  /* Step 6
+    Send the email. If this step fails, we set toEmail to true to indicate this step
+    did not compute.
+  */
+  try {
+    await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
+  } catch ( e ) {
+    error( `
+    Something went wrong with sending the email.\n
+    Please read the error below.\n
+    ${e}
+    ` );
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not send the email. Please read logs",
+        toEmail: true,
+        toPDF: false,
+      },
+    } );
+  }
+
+  /* Step 7
+    Clean up the folder created in os.tmpdir to prevent it from persisting
+    between instances and taking up bandwith
+  */
+  try {
+    await cleanTmpDir();
+  } catch ( e ) {
+    error( `
+    Something went wrong with cleaning up the temp folder.\n
+    Please read the error below.\n
+    ${e}
+    ` );
+    // if we cannot clean the temp folder, exit early
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not clean up the temp folder. Please read logs",
+        toEmail: false,
+        toPDF: false,
+      },
+    } );
+  }
+
   return event.data.after.ref.update( {
-    runPDF: false,
-    sendEmail: true,
+    state: {
+      hadError: false,
+      hadErrorMessage: "",
+      toEmail: false,
+      toPDF: false,
+    },
   } );
 } );
 
-
-const mailTransport = nodemailer.createTransport( {
-  service: "gmail",
-  auth: {
-    user: `${process.env.USER_EMAIL}`,
-    pass: `${process.env.USER_PASS}`,
-  },
-} );
-exports.sendEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
-  const previousDocument = event.data.before;
-  const currentDocument = event.data.after;
-
-  const previousData = previousDocument.data();
-  const currentData = currentDocument.data();
-
-
-  if ( !currentDocument.data().sendEmail ||
-      !currentDocument.exists ||
-  ( previousDocument.exists && previousData.sendEmail === currentData.sendEmail ) ) {
-    return null;
-  }
-
-  const fileName = `invoice_${currentData.invoiceNumber}.pdf`;
-  const downloadPath = `${os.tmpdir}/${fileName}`;
-
-  const storage = getStorage();
-  const bucket = storage.bucket();
-
-  await bucket.file( `invoices/${fileName}` ).download( { destination: downloadPath } );
+/**
+ * Email sender function.
+ * @param {string} recieverEmail
+ * @param {string} invoiceNum
+ * @param {string} fileName
+ * @param {string} filePath
+ */
+async function sendEmail( recieverEmail, invoiceNum, fileName, filePath ) {
+  const mailTransport = nodemailer.createTransport( {
+    service: "gmail",
+    auth: {
+      user: `${process.env.USER_EMAIL}`,
+      pass: `${process.env.USER_PASS}`,
+    },
+  } );
 
   const mailOpts = {
     from: `DevWave ${process.env.USER_EMAIL}`,
-    to: currentData.clientEmail,
-    subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
+    to: recieverEmail,
+    subject: `TESTING FIREBASE: Your Invoice for Order ${invoiceNum} from Ansync, INC`,
     attachments: [
       {
         filename: fileName,
-        path: downloadPath,
+        path: filePath,
       },
     ],
   };
-
-  try {
-    await mailTransport.sendMail( mailOpts );
-  } catch ( e ) {
-    error( e );
-  }
-  return event.data.after.ref.update( {
-    sendEmail: false,
-  } );
-} );
-
+  await mailTransport.sendMail( mailOpts );
+}
