@@ -220,8 +220,48 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     } );
   }
 
-
   /* Step 6
+    Send the email. If this step fails, we set toEmail to true to indicate this step
+    did not compute.
+  */
+  try {
+    const mailTransport = nodemailer.createTransport( {
+      service: "gmail",
+      auth: {
+        user: `${process.env.USER_EMAIL}`,
+        pass: `${process.env.USER_PASS}`,
+      },
+    } );
+
+    const mailOpts = {
+      from: `DevWave ${process.env.USER_EMAIL}`,
+      to: currentData.clientEmail,
+      subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
+      attachments: [
+        {
+          filename: fileName,
+          path: pdfFilePath,
+        },
+      ],
+    };
+    await mailTransport.sendMail( mailOpts );
+  } catch ( e ) {
+    error( `
+    Something went wrong with sending the email.\n
+    Please read the error below.\n
+    ${e}
+    ` );
+    return event.data.after.ref.update( {
+      state: {
+        hadError: true,
+        hadErrorMessage: "Could not send the emailt. Please read logs",
+        toEmail: true,
+        toPDF: false,
+      },
+    } );
+  }
+
+  /* Step 7
     Clean up the folder created in os.tmpdir to prevent it from persisting
     between instances and taking up bandwith
   */
@@ -248,113 +288,8 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     state: {
       hadError: false,
       hadErrorMessage: "",
-      toEmail: true,
-      toPDF: false,
-    },
-  } );
-} );
-
-
-const mailTransport = nodemailer.createTransport( {
-  service: "gmail",
-  auth: {
-    user: `${process.env.USER_EMAIL}`,
-    pass: `${process.env.USER_PASS}`,
-  },
-} );
-exports.onToEmail = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
-  // get document state from before change and after change
-  const previousDocument = event.data.before;
-  const currentDocument = event.data.after;
-
-  // get data from before change and after change
-  const previousData = previousDocument.data();
-  const currentData = currentDocument.data();
-
-  // document state flags
-  const previousState = previousData.state;
-  const currentState = currentData.state;
-
-  /*
-    Because onDocumentWritten runs everytime a change is made, we need to handle some situations that will result in
-    infinite loops or needless creation of instances
-
-    1. If the toEmail flag is false, immediately exit.
-    2. If the document has been deleted, immediately exit.
-    3. If the toEmail flag has not changed, immediately exit.
-  */
-  if ( !currentState.toEmail ||
-      !currentDocument.exists ||
-  ( previousDocument.exists && previousState.toEmail === currentState.toEmail ) ) {
-    return null;
-  }
-  const fileName = `invoice_${currentData.invoiceNumber}.pdf`;
-
-  const storage = getStorage();
-  const bucket = storage.bucket();
-
-  let pdfBuffer;
-  /* Step 1
-    Get the PDF Buffer from cloud storage.
-   */
-  try {
-    [ pdfBuffer ] = await bucket.file( `invoices/${fileName}` ).download();
-  } catch ( e ) {
-    error( `
-    Something went wrong with getting the PDF buffer.\n
-    Please read the error below.\n
-    ${e}
-    ` );
-    return event.data.after.ref.update( {
-      state: {
-        hadError: true,
-        hadErrorMessage: "Could not get the invoice PDF buffer. Please read logs",
-        toEmail: false,
-        toPDF: false,
-      },
-    } );
-  }
-
-  const mailOpts = {
-    from: `DevWave ${process.env.USER_EMAIL}`,
-    to: currentData.clientEmail,
-    subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
-    attachments: [
-      {
-        filename: fileName,
-        content: pdfBuffer,
-      },
-    ],
-  };
-
-  /* Step 2
-    Send mail.
-   */
-  try {
-    await mailTransport.sendMail( mailOpts );
-  } catch ( e ) {
-    error( `
-    Something went wrong with sending the email.\n
-    Please read the error below.\n
-    ${e}
-    ` );
-    return event.data.after.ref.update( {
-      state: {
-        hadError: true,
-        hadErrorMessage: "Could not send the emailt. Please read logs",
-        toEmail: false,
-        toPDF: false,
-      },
-    } );
-  }
-
-  return event.data.after.ref.update( {
-    state: {
-      hadError: false,
-      hadErrorMessage: "",
       toEmail: false,
       toPDF: false,
     },
   } );
 } );
-
