@@ -55,6 +55,32 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   const storage = getStorage();
   const bucket = storage.bucket();
 
+  // intermediary work. These variables store names of files
+  const invoiceNumber = currentData.invoiceNumber;
+  // both the PDF and .tex file will have this name
+  const fileName = `invoice_${invoiceNumber}`;
+  // file name with extension
+  const latexFileNameWithExt = fileName + ".tex";
+  const pdfFileNameWithExt = fileName + ".pdf";
+
+  // paths where both the latex file and pdf file will be written
+  const latexFilePath = filePathOfNewFile( latexFileNameWithExt );
+  const pdfFilePath = filePathOfNewFile( pdfFileNameWithExt );
+
+  /* When email sending fails, it sets the "toEmail" flag to true.
+    If it is true, and the pdf file is already generated, then skip all the other work
+    and try to send the email again.
+  */
+  if ( currentState.toEmail && await bucket.file( `invoices/${pdfFileNameWithExt}` ).exists() ) {
+    await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
+    return event.data.after.ref.update( {
+      state: {
+        hadError: false,
+        hadErrorMessage: "",
+        toEmail: false,
+        toPDF: false,
+      } } );
+  }
   const folder = currentData.template;
 
   let filesDir;
@@ -138,18 +164,6 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   }
 
 
-  // intermediary work. These variables store names of files
-  const invoiceNumber = currentData.invoiceNumber;
-  // both the PDF and .tex file will have this name
-  const fileName = `invoice_${invoiceNumber}`;
-
-  // latex file name with extension
-  const fileNameWithExt = fileName + ".tex";
-
-  // paths where both the latex file and pdf file will be written
-  const latexFilePath = filePathOfNewFile( fileNameWithExt );
-  const pdfFilePath = filePathOfNewFile( fileName + ".pdf" );
-
   /* Step 3
     Create the LaTeX file by substituting the templating language for actual
     FireStore data.
@@ -202,7 +216,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     Upload the final PDF to our cloud bucket, under the "invoices" folder
   */
   try {
-    await bucket.upload( pdfFilePath, { destination: `invoices/${fileName}.pdf` } );
+    await bucket.upload( pdfFilePath, { destination: `invoices/${pdfFileNameWithExt}` } );
   } catch ( e ) {
     error( `
     Something went wrong with uploading the PDF.\n
@@ -225,26 +239,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     did not compute.
   */
   try {
-    const mailTransport = nodemailer.createTransport( {
-      service: "gmail",
-      auth: {
-        user: `${process.env.USER_EMAIL}`,
-        pass: `${process.env.USER_PASS}`,
-      },
-    } );
-
-    const mailOpts = {
-      from: `DevWave ${process.env.USER_EMAIL}`,
-      to: currentData.clientEmail,
-      subject: `TESTING FIREBASE: Your Invoice for Order ${currentData.invoiceNumber} from Ansync, INC`,
-      attachments: [
-        {
-          filename: fileName,
-          path: pdfFilePath,
-        },
-      ],
-    };
-    await mailTransport.sendMail( mailOpts );
+    await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
   } catch ( e ) {
     error( `
     Something went wrong with sending the email.\n
@@ -254,7 +249,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     return event.data.after.ref.update( {
       state: {
         hadError: true,
-        hadErrorMessage: "Could not send the emailt. Please read logs",
+        hadErrorMessage: "Could not send the email. Please read logs",
         toEmail: true,
         toPDF: false,
       },
@@ -293,3 +288,33 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     },
   } );
 } );
+
+/**
+ * Email sender function.
+ * @param {string} recieverEmail
+ * @param {string} invoiceNum
+ * @param {string} fileName
+ * @param {string} filePath
+ */
+async function sendEmail( recieverEmail, invoiceNum, fileName, filePath ) {
+  const mailTransport = nodemailer.createTransport( {
+    service: "gmail",
+    auth: {
+      user: `${process.env.USER_EMAIL}`,
+      pass: `${process.env.USER_PASS}`,
+    },
+  } );
+
+  const mailOpts = {
+    from: `DevWave ${process.env.USER_EMAIL}`,
+    to: recieverEmail,
+    subject: `TESTING FIREBASE: Your Invoice for Order ${invoiceNum} from Ansync, INC`,
+    attachments: [
+      {
+        filename: fileName,
+        path: filePath,
+      },
+    ],
+  };
+  await mailTransport.sendMail( mailOpts );
+}
