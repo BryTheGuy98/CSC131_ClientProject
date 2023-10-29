@@ -1,12 +1,11 @@
 // eslint-disable-next-line no-unused-vars
-const { Timestamp } = require( "firebase-admin/firestore" );
 const { initializeApp } = require( "firebase-admin/app" );
 const { error } = require( "firebase-functions/logger" );
 const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
 const { getStorage } = require( "firebase-admin/storage" );
 const { setGlobalOptions } = require( "firebase-functions/v2" );
 
-const { writeFile, readdir } = require( "fs/promises" );
+const { writeFile } = require( "fs/promises" );
 const os = require( "os" );
 
 const tectonic = require( "tectonic-js" );
@@ -70,8 +69,17 @@ exports.onRunPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     const fileName = `invoice_${invoiceNumber}`;
 
     // create our final latex file
-    const newTex = new Template( texBuffer ).substitute( currentData );
-    await writeFile( os.tmpdir + `/${fileName}.tex`, newTex, { encoding: "utf-8", flag: "w" } );
+    const templater = new Template( texBuffer );
+    try {
+      await templater
+          .substitute( currentData )
+          .writeToFile( os.tmpdir + "/" + fileName + ".tex", { encoding: "utf-8", flag: "w" } );
+    } catch ( e ) {
+      error( `
+        Something went wrong with templating. Please read the error.
+        ${e}
+      ` );
+    }
 
     // process and compile it
     await tectonic( os.tmpdir + `/${fileName}.tex -o ` + os.tmpdir );
