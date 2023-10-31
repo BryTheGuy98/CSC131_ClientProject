@@ -4,7 +4,17 @@
  * @property {string} description
  * @property {number} quantity
  * @property {number} unitPrice
+ * @property {number} tax
  *
+ */
+
+/**
+ * Define document state
+ * @typedef {Object} State
+ * @property {boolean} hadError
+ * @property {string} hadErrorMessage
+ * @property {boolean} toEmail
+ * @property {boolean} toPDF
  */
 
 /**
@@ -20,6 +30,9 @@
  * @property {string} invoiceNumber
  * @property {string} description
  * @property {Item[]} items
+ * @property {State} state
  * @property {string} reference
- * @property {boolean} runPDF
+ * @property {number} total
+ * @property {number} subtotal
+ * @property {number} totalTax
  */

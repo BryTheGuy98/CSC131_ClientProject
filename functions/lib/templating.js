@@ -48,8 +48,9 @@ class Template {
       // get the actual matched string (which will be used to replace with data)
       // and then the capture group variable (which is the name of a data property in FireStore)
       const [ regex, varName ] = match;
+      const dataVar = !data[varName] ? "N/A" : data[varName];
       // replace the matched string with data
-      str = str.replace( regex, data[varName] );
+      str = str.replace( regex, dataVar );
     }
     return str;
   }
@@ -95,7 +96,7 @@ class Template {
 
       // and then, based on that block type
       switch ( blockType ) {
-        case ".for":
+        case ".for": {
           // for each item in our FireStore complex structure
           // in a for loop, the body line(s) will repeat for each item
           data[dataName].forEach( ( item ) => {
@@ -108,6 +109,28 @@ class Template {
             finalStr += section + "\n";
           } );
           break;
+        }
+        case ".date": {
+          const [ , varName, ...funcs ] = head.match( BLOCK_ITEMS_REGEX );
+
+          // get rid of the end tag
+          funcs.pop();
+
+          const date = data[varName.substring( 1 )];
+
+          // run the functions on the date
+          // this dynamic chaining is brought to you by https://stackoverflow.com/a/51047216
+          const finalDate = funcs
+              // strip the period from the beginning
+              .map( ( func ) => func.substring( 1 ) )
+          // dynamically run the functions as a chain
+              .reduce( ( prevResult, currentFunc ) => (
+                prevResult[currentFunc]()
+              ), date );
+
+          finalStr += finalDate;
+          break;
+        }
         default:
           // if there is no handling for a body type, throw an error.
           throw new Error( "Undefined body template. Please include an implementation for this in the body class" );
