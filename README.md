@@ -71,10 +71,10 @@ For an example implementation of this data document, run the Firebase Emulator [
 The document object contains a `state` object to communicate between the user and the [Firebase Function](#iii-cloud-functions). It contains the following data:
 1. `toPDF`: When the document is created, this flag will be set to true. This fires off the Function, which will run, generate the PDF, send the Email, and upload the PDF to [Cloud Storage](#ii-cloud-storage). 
 2. `hadError`: This notifies the user that an error occurred at a point during the Function process.
-3. `hadErrorMessage`: This provides the user with insight into the error that occrent during the Function process. It indicates which step of the process failed and directs the user to the Function logs for further detail.
-4. `toEmail`: This flag is only used in cases of an error during the Email sending step. If it fails, it sets this flag to true, so that, the user can set the `toPDF` flag back to true to re-execute the function. When this flag is true during the re-run, the function will not recompile the LaTeX, saving bandwith, and will instead only re-attempt to send the Email. 
+3. `hadErrorMessage`: This provides the user with insight into the error that occurred during the Function process. It indicates which step of the process failed and directs the user to the Function logs for further detail.
+4. `toEmail`: This flag is only used in cases of an error during the Email sending step. If it fails, it sets this flag to true so that the user can set the `toPDF` flag back to true to re-execute the function. When this flag is true during the re-run, the function will not recompile the LaTeX, saving bandwith, and will instead only re-attempt to send the Email. 
 ##### Prices
-As dicussed in the 2<sup>nd</sup> Demo Session on October 17<sup>th</sup>, 2023, financial data would be handled by an external system (such as an accounting software, etc.). Thus, this generator app merely takes in that information instead of being responsible for that information. Due to this, each `item` in the `items` array requires a `unitPrice` and `tax`* property and the document object requires the `subtotal`, `totalTax`, and `total` properties.
+As discussed in the 2<sup>nd</sup> Demo Session on October 17<sup>th</sup>, 2023, financial data would be handled by an external system (such as an accounting software, etc.). Thus, this generator app merely takes in that information instead of being responsible for that information. Due to this, each `item` in the `items` array requires a `unitPrice` and `tax`* property and the document object requires the `subtotal`, `totalTax`, and `total` properties.
 
   > [!NOTE]
   > *When the tax for an item in non-taxable, leaving this property null tells the program to place `N/A` on the final invoice. 
@@ -165,23 +165,23 @@ where `dueDate` is the `Timestamp` data, and `toDate` and `toDateString` are fun
 
 ### C. Node Mailer
 
-This application implements emailing a PDF to the client using [nodemailer](https://nodemailer.com). Nodemailer is ideal for this process, because nodemailer does not incurr any charges for using the `gmail` provider (which is nice because this project is already hosted on Google infrastructure). 
+This application implements emailing a PDF to the client using [nodemailer](https://nodemailer.com). Nodemailer is ideal for this process, because nodemailer does not incur any charges for using the `gmail` provider (which is nice because this project is already hosted on Google infrastructure). 
 
-Nodemailer does require some evironment variables, which are described in [setting up local development](#b-local). 
+Nodemailer does require some environment variables, which are described in [setting up local development](#b-local). 
 
 ## II. Project Structure
 
-The project has three main folders.
+The project has three main folders:
 
 > [!IMPORTANT]
-> The root folder contains a `package-lock` and `package` file, but these contain no modules. They instead provides some hepler npm commands, such as installation for the `tectonic` binary and running the local Firebase emulator. The `package-lock` and `package` file dealing with actual node modules and the code are under the `functions/` directory.
+> The root folder contains a `package-lock` and `package` file, but these contain no modules. They instead provides some helper npm commands, such as installation for the `tectonic` binary and running the local Firebase emulator. The `package-lock` and `package` file dealing with actual node modules and the code are under the `functions/` directory.
 
 ### A. tectonic
 
 This module is a wrapper module around the [Tectonic](#i-tectonic) LaTeX compiler.
 
-**The need**: Simply uploading the Tectonic binary within the `function` code uploaded does not give it the permissions necessary to read and write files. This is not-optimal as this compiler needs to (1) read the input `.tex` file and (2) compile it to PDF.
-**The solution**: Installed node modules get all permissions on the host OS (`777`), thus creating a local node module will allow us to compile LaTeX. 
+**The need**: Simply uploading the Tectonic binary within the `function` code uploaded does not give it the permissions necessary to read and write files. This is not optimal as this compiler needs to (1) read the input `.tex` file and (2) compile it to PDF.
+**The solution**: Installed node modules get all permissions on the host OS (`777`), thus creating a local node module which will allow us to compile LaTeX. 
 
 The local node module provides an interface to interact with the included binaries: 
 1. `linux x64`: The Google Function host runs on Ubuntu 22.04 x64.
