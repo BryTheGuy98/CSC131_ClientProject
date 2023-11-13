@@ -3,7 +3,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % DevWave Invoice Template Class
 % LaTeX Template Class
-% Version 1.0 (September 30th, 2023)
+% Version 1.2 (October 30th, 2023)
 %
 % The raw outline of the class and the packages were grabbed from:
 % https://www.LaTeXTemplates.com
@@ -14,7 +14,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %----------------------------------------------------------------------------------------
-%	CLASS CONFIGURATION
+% CLASS CONFIGURATION
 %----------------------------------------------------------------------------------------
 
 \NeedsTeXFormat{LaTeX2e}
@@ -26,15 +26,13 @@
 \LoadClass{extarticle} % Load the base class
 
 %----------------------------------------------------------------------------------------
-%	REQUIRED PACKAGES AND MISC CONFIGURATIONS
+% REQUIRED PACKAGES AND MISC CONFIGURATIONS
 %----------------------------------------------------------------------------------------
 
 \usepackage{fp} % Required for invoice calculations
 
-\usepackage{tikz}
-
 \usepackage[ % Required for automatically formatting numbers with \num{}, such as adding commas for numbers like: 1200 -> 1,200
-	detect-all, text-rm, % Detect the weight, family and shape of the current font and match it when outputting a number with \num{}
+ detect-all, text-rm, % Detect the weight, family and shape of the current font and match it when outputting a number with \num{}
 ]{siunitx}
 
 \usepackage{setspace} % Required to enable changing line spacing
@@ -53,19 +51,19 @@
 \usepackage[document]{ragged2e} % Left align all text in the document (i.e. have a ragged right margin)
 
 %----------------------------------------------------------------------------------------
-%	MARGINS
+% MARGINS
 %----------------------------------------------------------------------------------------
 
 \usepackage[
-	top=1.75cm, % Top margin
-	bottom=2.25cm, % Bottom margin
-	left=1.5cm, % Left margin
-	right=1.5cm, % Right margin
-	%showframe % Uncomment to show frames around the margins for debugging purposes
+ top=1.75cm, % Top margin
+ bottom=2.25cm, % Bottom margin
+ left=1.5cm, % Left margin
+ right=1.5cm, % Right margin
+ %showframe % Uncomment to show frames around the margins for debugging purposes
 ]{geometry}
 
 %----------------------------------------------------------------------------------------
-%	FONTS
+% FONTS
 %----------------------------------------------------------------------------------------
 
 \usepackage[utf8]{inputenc} % Required for inputting international characters
@@ -77,10 +75,10 @@
 \usepackage{tfrupee} % Required for the rupee symbol
 
 %----------------------------------------------------------------------------------------
-%	TABLES
+% TABLES
 %----------------------------------------------------------------------------------------
 
-\usepackage{tabularx}
+\usepackage{tabularx} % Required for client info table
 \usepackage{longtable} % Required for tables that can span multiple pages
 \setlength{\LTpre}{0pt} % Whitespace above longtables
 \setlength{\LTpost}{0pt} % Whitespace below longtables
@@ -101,37 +99,37 @@
 \setlength{\tabcolsep}{4pt} % Decrease default padding between columns (6pt is the default)
 
 %----------------------------------------------------------------------------------------
-%	DETERMINE CURRENCY SYMBOL
+% DETERMINE CURRENCY SYMBOL
 %----------------------------------------------------------------------------------------
 
 \newcommand{\currencysymbol}{\$} % The default currency symbol is a dollar sign
 
 \newcommand{\determinecurrencysymbol}[1]{ % Uses the user-submitted currency to determine the symbol to use
-	\expandafter\ifstrequal\expandafter{#1}{GBP}{\renewcommand{\currencysymbol}{\textsterling}}{} % GBP (English pounds)
-	
-	\ifboolexpr{ test {\expandafter\ifstrequal\expandafter{#1}{JPY}} or test {\expandafter\ifstrequal\expandafter{#1}{CNY}} }{\renewcommand{\currencysymbol}{\textyen}}{} % JPY or CNY (yen)
-	
-	\expandafter\ifstrequal\expandafter{#1}{EUR}{\renewcommand{\currencysymbol}{\texteuro}}{} % EUR (European euro)
-	
-	\expandafter\ifstrequal\expandafter{#1}{BRL}{\renewcommand{\currencysymbol}{R\$}}{} % BRL (Brazilian real)
-	
-	\expandafter\ifstrequal\expandafter{#1}{INR}{\renewcommand{\currencysymbol}{\rupee}}{} % INR (Indian rupee)
+ \expandafter\ifstrequal\expandafter{#1}{GBP}{\renewcommand{\currencysymbol}{\textsterling}}{} % GBP (English pounds)
+
+ \ifboolexpr{ test {\expandafter\ifstrequal\expandafter{#1}{JPY}} or test {\expandafter\ifstrequal\expandafter{#1}{CNY}} }{\renewcommand{\currencysymbol}{\textyen}}{} % JPY or CNY (yen)
+
+ \expandafter\ifstrequal\expandafter{#1}{EUR}{\renewcommand{\currencysymbol}{\texteuro}}{} % EUR (European euro)
+
+ \expandafter\ifstrequal\expandafter{#1}{BRL}{\renewcommand{\currencysymbol}{R\$}}{} % BRL (Brazilian real)
+
+ \expandafter\ifstrequal\expandafter{#1}{INR}{\renewcommand{\currencysymbol}{\rupee}}{} % INR (Indian rupee)
 }
 
 %----------------------------------------------------------------------------------------
-%	DUE DATE CALCULATION
+% DUE DATE CALCULATION
 %---------------------pdflatex -synctex=1 -interaction=nonstopmode %.tex-------------------------------------------------------------------
 
 \usepackage{datenumber} % Required for date calculations
 
 \newcommand{\duedatedays}[1]{% Command to calculate and output the due date from the number of days from today
-	\addtocounter{datenumber}{#1}% Number of days from today
-	\setdatebynumber{\thedatenumber}% Calculate into the future using the number of days from today
-	\datedate % Output the calculated date
+ \addtocounter{datenumber}{#1}% Number of days from today
+ \setdatebynumber{\thedatenumber}% Calculate into the future using the number of days from today
+ \datedate % Output the calculated date
 }
 
 %----------------------------------------------------------------------------------------
-%	INVOICE ENTRIES
+% INVOICE ENTRIES
 %----------------------------------------------------------------------------------------
 
 % Define global variables that get updated for each new invoice item for various invoice totals
@@ -144,121 +142,121 @@
 
 % Command to calculate the subtotal for an invoice item and add it to the running totals for the whole invoice
 \newcommand{\calculatesubtotalandupdatetotals}[2]{% Takes 2 arguments: 1) quantity 2) unit price
-	\FPmul{\subtotal}{#1}{#2}% Calculate the subtotal by multiplying the quantity by the unit price
-	\FPround{\subtotal}{\subtotal}{\roundcurrencytodecimals}% Round the subtotal to the specified number of decimal places for display and further calculations
-	\global\let\currentsubtotalglobal\subtotal% Set the global current subtotal variable for further use and output to the invoice
-	%----------------------------------------
-	\FPeval{\beforetax}{round(\totalbeforetaxglobal + \currentsubtotalglobal, \roundcurrencytodecimals)}% Calculate the cumulative before tax total for the whole invoice by adding the current line's subtotal to the previous cumulative before tax total and round to the specified number of decimal places for display
-	\global\let\totalbeforetaxglobal\beforetax% Update the global cumulative before tax total variable for further use and output to the invoice
-	%----------------------------------------
-	\ifdefempty{\taxrate}{}{% If a tax rate was set
-		\FPeval{\tax}{round(\totalbeforetaxglobal * (\taxrate / 100), \roundcurrencytodecimals)}% Calculate the cumulative total tax for the whole invoice using the total cumulative before tax total and the tax rate, rounded to the specified number of decimal places for display
-		\global\let\totaltaxglobal\tax% Update the global tax total variable for further use and output to the invoice
-	}%
-	%----------------------------------------
-	\FPeval{\aftertax}{round(\totalbeforetaxglobal + \totaltaxglobal, \roundcurrencytodecimals)}% Calculate the cumulative after tax total for the whole invoice by adding the before tax total to the total tax and rounding to the specified number of decimal places for display
-	\global\let\totalaftertaxglobal\aftertax% Update the global after tax total variable for further use and output to the invoice
+ \FPmul{\subtotal}{#1}{#2}% Calculate the subtotal by multiplying the quantity by the unit price
+ \FPround{\subtotal}{\subtotal}{\roundcurrencytodecimals}% Round the subtotal to the specified number of decimal places for display and further calculations
+ \global\let\currentsubtotalglobal\subtotal% Set the global current subtotal variable for further use and output to the invoice
+ %----------------------------------------
+ \FPeval{\beforetax}{round(\totalbeforetaxglobal + \currentsubtotalglobal, \roundcurrencytodecimals)}% Calculate the cumulative before tax total for the whole invoice by adding the current line's subtotal to the previous cumulative before tax total and round to the specified number of decimal places for display
+ \global\let\totalbeforetaxglobal\beforetax% Update the global cumulative before tax total variable for further use and output to the invoice
+ %----------------------------------------
+ \ifdefempty{\taxrate}{}{% If a tax rate was set
+  \FPeval{\tax}{round(\totalbeforetaxglobal * (\taxrate / 100), \roundcurrencytodecimals)}% Calculate the cumulative total tax for the whole invoice using the total cumulative before tax total and the tax rate, rounded to the specified number of decimal places for display
+  \global\let\totaltaxglobal\tax% Update the global tax total variable for further use and output to the invoice
+ }%
+ %----------------------------------------
+ \FPeval{\aftertax}{round(\totalbeforetaxglobal + \totaltaxglobal, \roundcurrencytodecimals)}% Calculate the cumulative after tax total for the whole invoice by adding the before tax total to the total tax and rounding to the specified number of decimal places for display
+ \global\let\totalaftertaxglobal\aftertax% Update the global after tax total variable for further use and output to the invoice
 }
 
 %----------------------------------------
 
 % Command to correctly output a currency number to the invoice, taking into account negatives and currency symbol positioning
 \newcommand{\outputcurrency}[1]{%
-	\FPifneg{#1}% If the number is negative
-		\FPmul{\positivenumber}{#1}{-1}% Make the negative number positive
-		\hspace{-\negativesign}--\currencysymbol\FPeval{\roundedpositivenumber}{round(\positivenumber, \roundcurrencytodecimals)}\num{\roundedpositivenumber}\currencysuffix% Output the negative sign before the currency symbol (pulled left in case of left aligned table columns), otherwise it would be e.g. $-55.00, and round to the specified number of decimal places
-	\else% If the number is positive
-		\currencysymbol\FPeval{\roundednumber}{round(#1, \roundcurrencytodecimals)}\num{\roundednumber}\currencysuffix% Round to the specified number of decimal places
-	\fi%
+ \FPifneg{#1}% If the number is negative
+  \FPmul{\positivenumber}{#1}{-1}% Make the negative number positive
+  \hspace{-\negativesign}--\currencysymbol\FPeval{\roundedpositivenumber}{round(\positivenumber, \roundcurrencytodecimals)}\num{\roundedpositivenumber}\currencysuffix% Output the negative sign before the currency symbol (pulled left in case of left aligned table columns), otherwise it would be e.g. $-55.00, and round to the specified number of decimal places
+ \else% If the number is positive
+  \currencysymbol\FPeval{\roundednumber}{round(#1, \roundcurrencytodecimals)}\num{\roundednumber}\currencysuffix% Round to the specified number of decimal places
+ \fi%
 }
 
 %----------------------------------------
-\newcommand{\invoiceitem}[4]{ % Arguments: 1) description 2) quantity 3) unit price 4) note\
-\vline \hspace{1mm}
-	\calculatesubtotalandupdatetotals{#2}{#3}% Calculate the subtotal for the current item and update totals for the whole invoice
-	#1 & % Output the item description
-	\FPeval{\roundedquantity}{round(#2, \roundquantitytodecimals)}\num{\roundedquantity} & % Output the quantity to a table cell, rounded to the specified number of decimal places
-	\outputcurrency{#3} & % Output the unit price to a table cell
-	\outputcurrency{\currentsubtotalglobal} & % Output the subtotal to a table cell
-	{\small #4}\\ % Output the item note to a table cell
+\newcommand{\invoiceitem}[4]{ % Arguments: 1) description 2) quantity 3) unit price 4) tax \
+ \calculatesubtotalandupdatetotals{#2}{#3}% Calculate the subtotal for the current item and update totals for the whole invoice
+ #1 & % Output the item description
+ \FPeval{\roundedquantity}{round(#2, \roundquantitytodecimals)}\num{\roundedquantity} & % Output the quantity to a table cell, rounded to the specified number of decimal places
+ \outputcurrency{#3} & % Output the unit price to a table cell
+ \outputcurrency{#4} & % Output tax to a table cell
+ \outputcurrency{\currentsubtotalglobal} \\ % Output the subtotal to a table cell
+ %{\small #4} \\ % Output the item note to a table cell
 }
 %----------------------------------------
-\newcommand{\clientitem}[4]{
-	
-	\vspace{0.02\textheight}
+\newcommand{\clientitem}[4]{ % Arguments: 1) Client ID 2) Client Name 3) Client PO 4) Payment terms of client
 
-	\begin{tabular}{ | m{4.1cm} | m{4.1cm}| m{4.1cm} | m{4.1cm} | } 
-  		\hline
-  		\bf Client ID: & \bf Client Name: & \bf Client PO: & \bf Payment Terms:\\ 
-  		\hline
-  		{#1} & {#2} & {#3} & {#4}\\
-  		\hline
-	\end{tabular}
-	
-	\vspace{0.02\textheight}
+ \vspace{0.02\textheight} % formatting
+
+ \begin{tabular}{ | m{4.12cm} | m{4.12cm}| m{4.12cm} | m{4.12cm} | } % establish individual table dimensions
+    \hline % establish table cells
+    \bf Client ID: & \bf Client Name: & \bf Client PO: & \bf Payment Terms:\\ % output headers
+    \hline % establish table cells
+    {#1} & {#2} & {#3} & {#4}\\ % output client details
+    \hline % establish table cells
+ \end{tabular}
+
+ \vspace{0.02\textheight} % formatting
 
 }
 %----------------------------------------------------------------------------------------
-%	INVOICE TABLE ENVIRONMENT
+% INVOICE TABLE ENVIRONMENT
 %----------------------------------------------------------------------------------------
-
+% Establish table formatting and design
 \newenvironment{invoicetable}{
 
-	\vspace{0.02\textheight} % Fixed vertical whitespace in case the table uses up all the stretch space
-	
-	\begin{longtable}[H]{@{} L{0.45\textwidth} R{0.15\textwidth} R{0.15\textwidth} R{0.15\textwidth} @{\hspace{16pt}} L{0.15\textwidth} @{}} \hline % Define invoice table column widths and alignments (L, R or C for left, right or center alignment)
-		\vline \hspace{1mm} \textbf{DESCRIPTION} & \textbf{QUANTITY} & \textbf{UNIT PRICE} & \textbf{SUBTOTAL} & \\ \hline % Header row
+ \vspace{0.02\textheight} % Fixed vertical whitespace in case the table uses up all the stretch space
+
+ \begin{longtable}[H]{@{} | L{0.30\textwidth} | R{0.15\textwidth} | R{0.15\textwidth} | R{0.15\textwidth} | R{0.15\textwidth} @{\hspace{4pt}} | L{0.15\textwidth} @{}} \cline{1-5} % Define invoice table column widths and alignments (L, R or C for left, right or center alignment)
+  \hspace{1mm} \textbf{DESCRIPTION} & \textbf{QUANTITY} & \textbf{UNIT PRICE} & \textbf{TAX} & \textbf{SUBTOTAL} & \\ \cline{1-5} % Header row
 }{
-\hline
-		\\ % Extra line before the summary numbers
-		\ifdefempty{\taxrate}{}{& & \textbf{BEFORE TAX} & \outputcurrency{\totalbeforetaxglobal}\\} % Don't output the before tax line if no tax has been set
-		\ifdefempty{\taxrate}{}{& & \textbf{TAX (\taxrate\%)} & \outputcurrency{\totaltaxglobal}\\} % Don't output the total tax line if no tax has been set
-		& & \textbf{TOTAL\ifdefempty{\currencycode}{}{ (\currencycode)}} & \outputcurrency{\totalaftertaxglobal}\\ % Don't output the currency code if it has not been set
-	\end{longtable}
-	
-	\vspace{0.02\textheight} % Fixed vertical whitespace in case the table uses up all the stretch space
+\cline{1-5} % formatting
+  %\\ % Extra line before the summary numbers
+  % REMOVED SUBTOTAL \ifdefempty{\taxrate}{}{& & \textbf{SUBTOTAL} & \outputcurrency{\totalbeforetaxglobal}\\} % Don't output the before tax line if no tax has been set
+  % REMOVED TAX \ifdefempty{\taxrate}{}{& & \textbf{TAX (\taxrate\%)} & \outputcurrency{\totaltaxglobal}\\} % Don't output the total tax line if no tax has been set
+  % REMOVED TOTAL & & \textbf{TOTAL\ifdefempty{\currencycode}{}{ (\currencycode)}} & \outputcurrency{\totalaftertaxglobal}\\ % Don't output the currency code if it has not been set
+ \end{longtable}
+
+ \vspace{0.02\textheight} % Fixed vertical whitespace in case the table uses up all the stretch space
 }
 
 %----------------------------------------------------------------------------------------
-%	INVOICE HEADER DEFINITION
+% INVOICE HEADER DEFINITION
 %----------------------------------------------------------------------------------------
 
 \newcommand{\outputheader}[2]{
-	{\Huge{#1}} % Document title
-	
-	\vspace{0.010\textheight} % Vertical whitespace
-	
-	\expandafter\ifstrequal\expandafter{#2}{}{}{{\large #2}} % Invoice date (won't be output if empty)
-	
-	\vspace{0.01\textheight} % Vertical whitespace
+ {\Huge{#1}} % Document title
+
+ \vspace{0.010\textheight} % Vertical whitespace
+
+ \expandafter\ifstrequal\expandafter{#2}{}{}{{\large #2}} % Invoice date (won't be output if empty)
+
+ \vspace{0.01\textheight} % Vertical whitespace
 }
 
 %----------------------------------------------------------------------------------------
-%	INVOICE NUMBER
+% INVOICE NUMBER
 %----------------------------------------------------------------------------------------
 
 \newcommand{\outputinvoicenum}{
-	\ifdefempty{\invoicenumber}{}{ % If the invoice number has been set
-		{\Huge\text{Invoice }\#\invoicenumber} % Output the invoice number
-		\smallskip % Vertical whitespace
-	}
+ \ifdefempty{\invoicenumber}{}{ % If the invoice number has been set
+  {\Huge\text{Invoice }\#\invoicenumber} % Output the invoice number
+  \smallskip % Vertical whitespace
+ }
 }
 
 %----------------------------------------------------------------------------------------
-%	INVOICE CONDITIONS
+% INVOICE CONDITIONS
 %----------------------------------------------------------------------------------------
 
 \newcommand{\invoiceconditions}[1]{
-	\expandafter\ifstrequal\expandafter{#1}{}{}{
-		{\justifying #1 \par} % Justify the text
-	}
-	\vspace{0.06\textheight} % Vertical whitespace
+ \expandafter\ifstrequal\expandafter{#1}{}{}{
+  {\justifying #1 \par} % Justify the text
+ }
+ \vspace{0.06\textheight} % Vertical whitespace
 }
 
 %----------------------------------------------------------------------------------------
-%	CUSTOM COMMANDS
+% CUSTOM COMMANDS
 %----------------------------------------------------------------------------------------
-
+% some unnecessary, here if needed
 \newcommand{\taxrate}[1]{\renewcommand{\taxrate}{#1}}
 \newcommand{\currencycode}[1]{\renewcommand{\currencycode}{#1}}
 \newcommand{\invoicenumber}[1]{\renewcommand{\invoicenumber}{#1}}
@@ -271,7 +269,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % DevWave Invoice Template
 % LaTeX Template
-% Version 1.0 (September 30th, 2023)
+% Version 1.2 (October 30th, 2023)
 %
 % The raw outline of the template and the packages were used from:
 % https://www.LaTeXTemplates.com
@@ -333,8 +331,8 @@
 
 %---------------------------------------------------------------------------------
 
-\pagestyle{plain}
-\pagenumbering{arabic}
+\pagestyle{plain} % basic page style
+\pagenumbering{arabic} % add page numbers
 
 \begin{document}
 
@@ -343,12 +341,12 @@
 %---------------------------------------------------------------------------------
 %	INVOICE HEADER
 %---------------------------------------------------------------------------------
-\begin{figure}
-	\hspace{15cm}
-	\includegraphics[scale=0.35]{ansync_logo.jpg}
+\begin{figure} % include company logo
+	\hspace{15.35cm}
+	\includegraphics[scale=0.35]{ansync_logo.jpg} % logo file name
 	\vspace{-20mm}
 \end{figure}
-\outputheader{Ansync Labs - Client Invoice} {} % Output the invoice title (automatically all caps) and date (can be empty if not needed)
+\outputheader{Ansync Labs - Client Invoice} {\today} % Output the invoice title (automatically all caps) and date (can be empty if not needed)
 
 %---------------------------------------------------------------------------------
 %	INVOICE AND PAYEE INFORMATION
@@ -360,7 +358,7 @@
 \begin{minipage}[t]{0.5\textwidth}
 	\textbf{Date billed:} ~.date .invoiceDate .toDate .toDateString ~.end
 	
-	\textbf{Date due:}~.date .dueDate .toDate .toDateString ~.end
+	\textbf{Date due:} ~.date .dueDate .toDate .toDateString ~.end
 	
 	\textbf{Description:} ~description
 	
@@ -375,7 +373,7 @@
 \begin{minipage}[t]{0.35\textwidth}
 	\text{Ansync, inc.} % Payee name
 	
-	5090 Robert J Mathews Pkwy\\ % Payee contact lines
+	5090 Robert J Mathews Pkwy\\ % Payee contact lines (address)
 	El Dorado Hills, CA 95762 \\
 	United States \\
 	\href{mailto:example@email.com}{example@email.com} % Payee email
@@ -395,17 +393,17 @@
 % 1) Item description; this should be kept reasonably short so as not to span too many lines
 % 2) Item quantity (or hours); this should be a positive number (with no commas or other symbols) and decimals are allowed
 % 3) Item unit price (or hourly rate); this should be a positive or negative number (with no commas or other symbols) and decimals are allowed
-% 4) Item note; this can be left empty but, if used, it should be kept very short
+% 4) Item tax; leave 0 if tax exempt (should be positive or negative number)
 
 
 \clientitem{~clientID}{~clientName}{~clientPO}{Next 30 Days}
-
+% Begin invoice item table
 \begin{invoicetable}
 ~.for .items
-\invoiceitem{.description}{.quantity}{.unitPrice}{}
+\invoiceitem{.description}{.quantity}{.unitPrice}{.tax}
 ~.end
 \end{invoicetable}
-
+% End invoice item table
 %---------------------------------------------------------------------------------
 
 \vfill\vfill % Vertical alignment whitespace
@@ -414,7 +412,7 @@
 %	INVOICE CONDITIONS
 %---------------------------------------------------------------------------------
 
-\invoiceconditions{Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Pellentesque diam volutpat commodo sed egestas egestas fringilla phasellus faucibus. }% Leave command empty (i.e. \invoiceconditions{}) if not required
+\invoiceconditions{Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Pellentesque diam volutpat commodo sed egestas egestas fringilla phasellus faucibus.}% Leave command empty (i.e. \invoiceconditions{}) if not required
 
 %---------------------------------------------------------------------------------
 %	MERCHANT (YOUR) INFORMATION
@@ -438,11 +436,11 @@
 \begin{minipage}[t]{0.3\textwidth}
 	\itshape % Italic text
 	
-	\textbf{Contact}
+	\textbf{Contact} % Contact info header
 	
-	\href{https://ansync.com}{ansync.com} \\ % Merchant contact information lines
-	\href{mailto:contactus@ansync.com}{contactus@ansync.com} \\
-	\href{+1(916)-1234-567}{+1 (916)-1234-567}\\
+	\href{https://ansync.com}{ansync.com} \\ % Company website
+	\href{mailto:contactus@ansync.com}{contactus@ansync.com} \\ % Company email address
+	\href{+1(916)-1234-567}{+1 (916)-1234-567}\\ % Company number
 \end{minipage}
 % Fixed minimum horizontal whitespace between sections
 \begin{minipage}[t]{0.03\textwidth}
@@ -452,7 +450,7 @@
 \begin{minipage}[t]{0.3\textwidth}
 	\itshape % Italic text
 	
-	\textbf{Payment}
+	\textbf{Payment} % Payment info header
 	
 	Ansync financials \\ % Payment information lines
 	Sort Code: 123-456 \\
