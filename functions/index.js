@@ -12,8 +12,9 @@ const { cleanTmpDir, createFilesDir, getFilesDir, filePathOfNewFile } = require(
 // latex compiler needs a bit of memory
 setGlobalOptions(
     {
-      memory: "1GB",
+      memory: "512MiB",
       timeoutSeconds: 500,
+      maxInstances: 1,
     } );
 
 initializeApp();

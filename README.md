@@ -29,6 +29,7 @@
     - [A. Environment](#a-environment)
     - [B. Local](#b-local)
     - [C. Cloud](#c-cloud)
+  - [IV. Future](#c-cloud)
 
 ## I. Overview and Technologies
 This client project is implemented using the Google Cloud Platform (Firebase), NodeJS, and LaTeX.
@@ -72,7 +73,7 @@ The document object contains a `state` object to communicate between the user an
 1. `toPDF`: When the document is created, this flag will be set to true. This fires off the Function, which will run, generate the PDF, send the Email, and upload the PDF to [Cloud Storage](#ii-cloud-storage). 
 2. `hadError`: This notifies the user that an error occurred at a point during the Function process.
 3. `hadErrorMessage`: This provides the user with insight into the error that occurred during the Function process. It indicates which step of the process failed and directs the user to the Function logs for further detail.
-4. `toEmail`: This flag is only used in cases of an error during the Email sending step. If it fails, it sets this flag to true so that the user can set the `toPDF` flag back to true to re-execute the function. When this flag is true during the re-run, the function will not recompile the LaTeX, saving bandwith, and will instead only re-attempt to send the Email. 
+4. `toEmail`: This flag is only used in cases of an error during the Email sending step. If it fails, it sets this flag to true so that the user can set the `toPDF` flag back to true to re-execute the function. When this flag is true during the re-run, the function will not recompile the LaTeX, saving bandwidth, and will instead only re-attempt to send the Email. 
 ##### Prices
 As discussed in the 2<sup>nd</sup> Demo Session on October 17<sup>th</sup>, 2023, financial data would be handled by an external system (such as an accounting software, etc.). Thus, this generator app merely takes in that information instead of being responsible for that information. Due to this, each `item` in the `items` array requires a `unitPrice` and `tax`* property and the document object requires the `subtotal`, `totalTax`, and `total` properties.
 
@@ -81,7 +82,7 @@ As discussed in the 2<sup>nd</sup> Demo Session on October 17<sup>th</sup>, 2023
 
 #### ii. Cloud Storage
 This application uses Firebase Cloud Storage to store LaTeX templates and generated invoice PDFs. The storage bucket contains two folders:
-1. `templates`: this folder contains all possible templates. Templates are stored as subfolders, which then contain the main LaTeX file, named `template.tex` and any related assets (e.g., images, etc.) under a further subfolder called `assets`. A further example can be viewed through the [Firebase Emulator](#b-local) locally. 
+1. `templates`: this folder contains all possible templates. Templates are stored as sub-folders, which then contain the main LaTeX file, named `template.tex` and any related assets (e.g., images, etc.) under a further subfolder called `assets`. A further example can be viewed through the [Firebase Emulator](#b-local) locally. 
 
         templates
             ├── DevWave
@@ -100,22 +101,22 @@ This application uses Firebase Cloud Storage to store LaTeX templates and genera
   
 #### iii. Cloud Functions
 The Cloud Function implementation contains a single function,  `onToPDF`, which runs whenever the flag `toPDF` is set to true. The function follows these basic steps:
-1. Check if the `toEmail` flag is true and the PDF is already generated (denotes a previous error at step #7). If this check is true, then it skips LaTeX compilation to retry *only* sending an Email, saving bandwith.
+1. Check if the `toEmail` flag is true and the PDF is already generated (denotes a previous error at step #7). If this check is true, then it skips LaTeX compilation to retry *only* sending an Email, saving bandwidth.
 2. Otherwise, it begins setting up the local folder necessary to read from Cloud Storage.
 3. Download templates and assets from Cloud Storage.
 4. Substitute real data from the document into the LaTeX using the [templating](#ii-templating) system.
 5. Compile the LaTeX using [Tectonic](#a-tectonic).
 6. Upload the compiled PDF to [Cloud Storage](#ii-cloud-storage).
 7. Send the Email to the client using [nodemailer](#c-node-mailer).
-8. Clean up the temporary files, saving bandwith on future Function instances.
+8. Clean up the temporary files, saving bandwidth on future Function instances.
 
 Each step of the process has its paired error message to inform the user.
 
 ### B. Latex
 #### i. Tectonic
-Traditionally, LaTeX compilation has been done using the `pdflatex` command-line tool. However, it requires a complete installation of the [LaTeX package](https://www.latex-project.org/get/), which increases the size of the code (upload bandwith) and increases bandwith used during compilation. 
+Traditionally, LaTeX compilation has been done using the `pdflatex` command-line tool. However, it requires a complete installation of the [LaTeX package](https://www.latex-project.org/get/), which increases the size of the code (upload bandwidth) and increases bandwidth used during compilation. 
 
-Thus, this application uses the [Tectonic](https://tectonic-typesetting.github.io/en-US/) compiler for LaTeX. This is a Rust-based LaTeX compiler that is small in binary size and uses less bandwith during compilation. For further usage information in how this compiler is provided to the Firebase Function instances and local development, see the section on [Tectonic development](#a-tectonic). 
+Thus, this application uses the [Tectonic](https://tectonic-typesetting.github.io/en-US/) compiler for LaTeX. This is a Rust-based LaTeX compiler that is small in binary size and uses less bandwidth during compilation. For further usage information in how this compiler is provided to the Firebase Function instances and local development, see the section on [Tectonic development](#a-tectonic). 
 
 #### ii. Templating
 
@@ -136,7 +137,7 @@ This would then be substituted by the Firebase Function as:
 Hi! My name is Son, Nick.
 ```
 
-This follows for all "shallow" data in the Firebase document (i.e, everything excluding `maps`, `arrays`, and `Timestapms`): `total`, `subtotal`, `totalTax`, etc.
+This follows for all "shallow" data in the Firebase document (i.e, everything excluding `maps`, `arrays`, and `Timestamps`): `total`, `subtotal`, `totalTax`, etc.
 
 ##### Blocks
 Complex data structures, namely `arrays`, nested `maps`, and `Timestamps`, require a different implementation that internally is built upon the "simple" logic, but is tailor-suited for them. To this end, the templating allows for "blocks" to be declared. They are described using the following format:
@@ -192,12 +193,12 @@ The current binaries are the latest Tectonic version, [0.14.1](https://github.co
 
 To install this local module, run `npm run rebuild:tectonic`(a helper npm command). 
 > [!IMPORTANT]
-> Since Git/Github does not support large files, the tectonic .targz generated from build does not get persisted to version control. Each local installation must run the `rebuild` command individually. As this updates the `package-lock.json` file, make sure to run the `rebuild` command before `firebase deploy --only functions` so that the sha512 integrity check does not fail.
+> Currently, this tectonic compiled package is persisted using [git lfs](https://git-lfs.com) to ensure compatibility across dev environments. 
 
 
 ### B. functions
 
-The functions folder conains the code of the function in [`index.js`](functions/index.js). Helper methods are included under the [lib folder](functions/lib/): 
+The functions folder contains the code of the function in [`index.js`](functions/index.js). Helper methods are included under the [lib folder](functions/lib/): 
 
         lib
         ├── templating.js
@@ -210,14 +211,14 @@ To run the nodemailer function, a `.env` file is also required, as denoted [here
 
 ### C. dir
 
-This contains exported data from local emulators. This allows for data to be easily re-persisted across emulator runs (and prevents us from having to re-enter data everytime). Run `npm run local` or `firebase emulators:start --import=./dir`.
+This contains exported data from local emulators. This allows for data to be easily re-persisted across emulator runs (and prevents us from having to re-enter data every time). Run `npm run local` or `firebase emulators:start --import=./dir`.
 
 
 ## III. Development
 
 ### A. Environment
 
-Using nodemailer requires a `.env` file in the `functions/` directory to prevent doxxing of email and password. 
+Using nodemailer requires a `.env` file in the `functions/` directory to prevent doxing of email and password. 
 
 First, provide a Gmail account:
 ```dosini
@@ -239,4 +240,9 @@ To run this application locally, first run `npm run rebuild:tectonic` if having 
 
 ### C. Cloud
 
-To maintain the correct version of Tectonic itegrity check in `functions/package-lock.json`, run `npm run rebuild:tectonic` or `npm run install:tectonic` in the root directory. Then run `npm run cloud` or `firebase deploy --only functions` from the root directory. 
+To maintain the correct version of Tectonic integrity check in `functions/package-lock.json`, run `npm run rebuild:tectonic` or `npm run install:tectonic` in the root directory. Then run `npm run cloud` or `firebase deploy --only functions` from the root directory. 
+
+## IV. Future
+There are many paths to improve this package as it is used in a production, corporate environment. We have listed a few paths here:
+1. Compilers: If the Tectonic package is not ideal in the future for any number of reasons, there are other LaTeX compilers that may be of interest, the biggest of which would be `pdflatex`, `lualatex`, or `xelatex`. However, these compilers require a LaTeX environment, which requires installation of BasicTeX or the complete LaTeX installation. This, for simple reasons, is incompatible with the NPM module strategy employed here. So, in order to enable usage of these compilers, we recommend the use of Google Cloud Run to create a Docker container that will install this environment. 
+2. String Templating: Due to the inherent qualities of the Javascript engine and its memory handling, scaling up string operations is a very costly endeavor. If, at any point, the amount of items to be interpolated into the template reaches a critical mass (we estimate in the thousands), then using a "native" NodeJS module written in C++ or Rust to handle templating may be more ideal.
