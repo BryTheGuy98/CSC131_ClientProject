@@ -1,5 +1,5 @@
 const { initializeApp } = require( "firebase-admin/app" );
-const { error } = require( "firebase-functions/logger" );
+const { error, log } = require( "firebase-functions/logger" );
 const { onDocumentWritten } = require( "firebase-functions/v2/firestore" );
 const { getStorage } = require( "firebase-admin/storage" );
 const { setGlobalOptions } = require( "firebase-functions/v2" );
@@ -22,10 +22,10 @@ initializeApp();
 /**
  * The function to generate PDFs from a LaTeX Template
  *
- * onDocumentWritten runs everytime the document is changed, so it will run again
+ * onDocumentWritten runs every time the document is changed, so it will run again
  * if the toPDF flag under the state object is set to true
  */
-exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
+exports.onToPDF = onDocumentWritten( "Invoice/{invoiceId}", async ( event ) => {
   // get document state from before change and after change
   const previousDocument = event.data.before;
   const currentDocument = event.data.after;
@@ -39,7 +39,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   const currentState = currentData.state;
 
   /*
-    Because onDocumentWritten runs everytime a change is made, we need to handle some situations that will result in
+    Because onDocumentWritten runs every time a change is made, we need to handle some situations that will result in
     infinite loops or needless creation of instances
 
     1. If the toPDF flag is false, immediately exit.
@@ -72,7 +72,9 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     and try to send the email again.
   */
   if ( currentState.toEmail && await bucket.file( `invoices/${pdfFileNameWithExt}` ).exists() ) {
+    log( `Invoice ${invoiceNumber}: Step 1: Invoice already exists. Sending Email...` );
     await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
+    log( "   |--- Email Sent" );
     return event.data.after.ref.update( {
       state: {
         hadError: false,
@@ -88,9 +90,11 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     We need to be able to clean up our temporary files that we download/create to
     minimize memory use, so we create a folder in os.tmpdir that can be deleted wholesale later.
   */
+  log( `Invoice ${invoiceNumber}: Step 1: Setting up Functions environment...` );
   try {
     await createFilesDir();
     filesDir = getFilesDir();
+    log( "   |--- Setup complete." );
   } catch ( e ) {
     error( `
       Something went wrong with creating the files directory in os.tmpdir.\n
@@ -120,6 +124,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
         - template.tex is the main folder
         - the subfolder assets will contain all related assets (imgs, etc)
   */
+  log( `Invoice ${invoiceNumber}: Step 2: Getting LaTeX templates...` );
   try {
     texBuffer = await bucket
         .file( `templates/${folder}/template.tex` )
@@ -145,6 +150,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
                 file.download( { destination: filesDir + name } );
               } );
         } );
+    log( "   |--- Template files downloaded." );
   } catch ( e ) {
     error( `
       Something went wrong with downloading the template and related assets.\n
@@ -168,11 +174,13 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     Create the LaTeX file by substituting the templating language for actual
     FireStore data.
   */
+  log( `Invoice ${invoiceNumber}: Step 3: Inserting data using templating language...` );
   const templater = new Template( texBuffer );
   try {
     await templater
         .substitute( currentData )
         .writeToFile( latexFilePath, { encoding: "utf-8", flag: "w" } );
+    log( "   |--- Templating complete." );
   } catch ( e ) {
     error( `
         Something went wrong with templating.\n
@@ -193,8 +201,10 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   /* Step 4
     Compile the final LaTeX file with the tectonic utility.
   */
+  log( `Invoice ${invoiceNumber}: Step 4: Compiling LaTeX into PDF...` );
   try {
     await tectonic( latexFilePath + " -o " + filesDir );
+    log( "   |--- Compilation complete." );
   } catch ( e ) {
     error( `
     Something went wrong with compiling the LaTeX.\n
@@ -215,8 +225,10 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
   /* Step 5
     Upload the final PDF to our cloud bucket, under the "invoices" folder
   */
+  log( `Invoice ${invoiceNumber}: Step 5: Uploading PDF to Cloud bucket...` );
   try {
     await bucket.upload( pdfFilePath, { destination: `invoices/${pdfFileNameWithExt}` } );
+    log( "   |--- Upload complete." );
   } catch ( e ) {
     error( `
     Something went wrong with uploading the PDF.\n
@@ -238,8 +250,10 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     Send the email. If this step fails, we set toEmail to true to indicate this step
     did not compute.
   */
+  log( `Invoice ${invoiceNumber}: Step 6: Sending Email...` );
   try {
     await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
+    log( "   |--- Email Sent" );
   } catch ( e ) {
     error( `
     Something went wrong with sending the email.\n
@@ -258,10 +272,13 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
 
   /* Step 7
     Clean up the folder created in os.tmpdir to prevent it from persisting
-    between instances and taking up bandwith
+    between instances and taking up bandwidth
   */
+  log( `Invoice ${invoiceNumber}: Step 7: Cleaning up Functions environment...` );
+
   try {
     await cleanTmpDir();
+    log( "   |--- Cleanup complete." );
   } catch ( e ) {
     error( `
     Something went wrong with cleaning up the temp folder.\n
@@ -279,6 +296,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoidId}", async ( event ) => {
     } );
   }
 
+  log( `Invoice ${invoiceNumber}: Complete.` );
   return event.data.after.ref.update( {
     state: {
       hadError: false,
