@@ -252,7 +252,7 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoiceId}", async ( event ) => {
   */
   log( `Invoice ${invoiceNumber}: Step 6: Sending Email...` );
   try {
-    await sendEmail( currentData.clientEmail, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
+    await sendEmail( currentData.email, invoiceNumber, pdfFileNameWithExt, pdfFilePath );
     log( "   |--- Email Sent" );
   } catch ( e ) {
     error( `
@@ -309,12 +309,12 @@ exports.onToPDF = onDocumentWritten( "Invoice/{invoiceId}", async ( event ) => {
 
 /**
  * Email sender function.
- * @param {string} recieverEmail
+ * @param {Object} emailInfo
  * @param {string} invoiceNum
  * @param {string} fileName
  * @param {string} filePath
  */
-async function sendEmail( recieverEmail, invoiceNum, fileName, filePath ) {
+async function sendEmail( { header, body, recipient }, invoiceNum, fileName, filePath ) {
   const mailTransport = nodemailer.createTransport( {
     service: "gmail",
     auth: {
@@ -325,8 +325,9 @@ async function sendEmail( recieverEmail, invoiceNum, fileName, filePath ) {
 
   const mailOpts = {
     from: `DevWave ${process.env.USER_EMAIL}`,
-    to: recieverEmail,
-    subject: `TESTING FIREBASE: Your Invoice for Order ${invoiceNum} from Ansync, INC`,
+    to: recipient,
+    subject: header || `TESTING FIREBASE: Your Invoice for Order ${invoiceNum} from Ansync, INC`,
+    text: body || "",
     attachments: [
       {
         filename: fileName,
