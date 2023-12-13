@@ -62,6 +62,11 @@ This generator uses the Firebase Firestore as its datastore. This means that for
     hadErrorMessage: string, // default null,
     toEmail: boolean, // default false,
     toPDF: boolean, // default true when created.
+  },
+  email: {
+    recipient: string,
+    header: string?, // optional
+    body: string?, // optional
   }
 }
 ```
